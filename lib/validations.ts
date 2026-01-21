@@ -18,11 +18,21 @@ export const productInventoryItemSchema = z.object({
   quantityRequired: z.number().min(0.01, 'Quantity must be greater than 0'),
 });
 
+export const conditionalUtilizationSchema = z.object({
+  conditionType: z.enum(['width', 'height', 'both']),
+  operator: z.enum(['greater_than', 'less_than', 'equal_to']),
+  widthThreshold: z.number().min(0).optional(),
+  heightThreshold: z.number().min(0).optional(),
+  inventoryItems: z.array(productInventoryItemSchema).min(1, 'At least one inventory item is required'),
+});
+
 export const productSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   description: z.string().max(500).optional(),
   sku: z.string().min(1, 'SKU is required').max(50),
   inventoryItems: z.array(productInventoryItemSchema).min(1, 'At least one inventory item is required'),
+  hasConditionalUtilization: z.boolean().optional(),
+  conditionalUtilizations: z.array(conditionalUtilizationSchema).optional(),
 });
 
 export type ProductInput = z.infer<typeof productSchema>;
@@ -31,6 +41,8 @@ export type ProductInput = z.infer<typeof productSchema>;
 export const manufacturingSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
   quantityProduced: z.number().min(1, 'Quantity must be at least 1').int('Quantity must be a whole number'),
+  width: z.number().min(0).optional(),
+  height: z.number().min(0).optional(),
   manufacturedBy: z.string().max(100).optional(),
   notes: z.string().max(1000).optional(),
 });

@@ -36,6 +36,8 @@ export default function ManufacturingPage() {
   const [formData, setFormData] = useState({
     productId: '',
     quantityProduced: 1,
+    width: 0,
+    height: 0,
     manufacturedBy: '',
     notes: '',
   });
@@ -73,7 +75,7 @@ export default function ManufacturingPage() {
 
     try {
       const response = await fetch(
-        `/api/manufacturing/check?productId=${formData.productId}&quantity=${formData.quantityProduced}`
+        `/api/manufacturing/check?productId=${formData.productId}&quantity=${formData.quantityProduced}&width=${formData.width}&height=${formData.height}`
       );
       const data = await response.json();
 
@@ -109,6 +111,8 @@ export default function ManufacturingPage() {
         setFormData({
           productId: '',
           quantityProduced: 1,
+          width: 0,
+          height: 0,
           manufacturedBy: '',
           notes: '',
         });
@@ -137,7 +141,7 @@ export default function ManufacturingPage() {
     } else {
       setStockCheck(null);
     }
-  }, [formData.productId, formData.quantityProduced]);
+  }, [formData.productId, formData.quantityProduced, formData.width, formData.height]);
 
   if (loading) {
     return (
@@ -205,6 +209,40 @@ export default function ManufacturingPage() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                 required
               />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="width" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Width (for conditional utilization)
+                </label>
+                <input
+                  type="number"
+                  id="width"
+                  step="0.01"
+                  min="0"
+                  value={formData.width}
+                  onChange={(e) => setFormData({ ...formData, width: parseFloat(e.target.value) || 0 })}
+                  placeholder="Enter width"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="height" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Height (for conditional utilization)
+                </label>
+                <input
+                  type="number"
+                  id="height"
+                  step="0.01"
+                  min="0"
+                  value={formData.height}
+                  onChange={(e) => setFormData({ ...formData, height: parseFloat(e.target.value) || 0 })}
+                  placeholder="Enter height"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
 
             {checking && (

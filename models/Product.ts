@@ -5,11 +5,21 @@ interface IProductInventoryItem {
   quantityRequired: number;
 }
 
+interface IConditionalUtilization {
+  conditionType: 'width' | 'height' | 'both';
+  operator: 'greater_than' | 'less_than' | 'equal_to';
+  widthThreshold?: number;
+  heightThreshold?: number;
+  inventoryItems: IProductInventoryItem[];
+}
+
 export interface IProduct extends Document {
   name: string;
   description?: string;
   sku: string;
   inventoryItems: IProductInventoryItem[];
+  hasConditionalUtilization: boolean;
+  conditionalUtilizations?: IConditionalUtilization[];
   totalManufactured: number;
   createdAt: Date;
   updatedAt: Date;
@@ -26,6 +36,39 @@ const ProductInventoryItemSchema = new Schema<IProductInventoryItem>(
       type: Number,
       required: [true, 'Quantity required is required'],
       min: [0.01, 'Quantity must be greater than 0'],
+    },
+  },
+  { _id: false }
+);
+
+const ConditionalUtilizationSchema = new Schema<IConditionalUtilization>(
+  {
+    conditionType: {
+      type: String,
+      enum: ['width', 'height', 'both'],
+      required: [true, 'Condition type is required'],
+    },
+    operator: {
+      type: String,
+      enum: ['greater_than', 'less_than', 'equal_to'],
+      required: [true, 'Operator is required'],
+    },
+    widthThreshold: {
+      type: Number,
+      min: [0, 'Width threshold must be positive'],
+    },
+    heightThreshold: {
+      type: Number,
+      min: [0, 'Height threshold must be positive'],
+    },
+    inventoryItems: {
+      type: [ProductInventoryItemSchema],
+      validate: {
+        validator: function (v: IProductInventoryItem[]) {
+          return v && v.length > 0;
+        },
+        message: 'At least one inventory item is required for conditional utilization',
+      },
     },
   },
   { _id: false }
@@ -59,6 +102,14 @@ const ProductSchema = new Schema<IProduct>(
         },
         message: 'At least one inventory item is required',
       },
+    },
+    hasConditionalUtilization: {
+      type: Boolean,
+      default: false,
+    },
+    conditionalUtilizations: {
+      type: [ConditionalUtilizationSchema],
+      default: [],
     },
     totalManufactured: {
       type: Number,

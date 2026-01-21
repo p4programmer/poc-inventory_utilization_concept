@@ -7,6 +7,45 @@ import { manufacturingSchema } from '@/lib/validations';
 import { ZodError } from 'zod';
 import mongoose from 'mongoose';
 
+// Helper function to check if dimensions match condition
+function checkDimensionCondition(
+  conditionType: string,
+  operator: string,
+  widthThreshold: number | undefined,
+  heightThreshold: number | undefined,
+  actualWidth: number,
+  actualHeight: number
+): boolean {
+  const checkOperator = (value: number, threshold: number, op: string): boolean => {
+    switch (op) {
+      case 'greater_than':
+        return value > threshold;
+      case 'less_than':
+        return value < threshold;
+      case 'equal_to':
+        return value === threshold;
+      default:
+        return false;
+    }
+  };
+
+  switch (conditionType) {
+    case 'width':
+      return widthThreshold !== undefined && checkOperator(actualWidth, widthThreshold, operator);
+    case 'height':
+      return heightThreshold !== undefined && checkOperator(actualHeight, heightThreshold, operator);
+    case 'both':
+      return (
+        widthThreshold !== undefined &&
+        heightThreshold !== undefined &&
+        checkOperator(actualWidth, widthThreshold, operator) &&
+        checkOperator(actualHeight, heightThreshold, operator)
+      );
+    default:
+      return false;
+  }
+}
+
 // POST /api/manufacturing - Process manufacturing and deduct inventory
 export async function POST(request: NextRequest) {
   const session = await mongoose.startSession();
@@ -20,9 +59,13 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const validatedData = manufacturingSchema.parse(body);
     
+    const width = validatedData.width || 0;
+    const height = validatedData.height || 0;
+    
     // Get the product with its inventory requirements
     const product = await Product.findById(validatedData.productId)
       .populate('inventoryItems.inventoryItemId')
+      .populate('conditionalUtilizations.inventoryItems.inventoryItemId')
       .session(session);
     
     if (!product) {
@@ -36,6 +79,28 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Determine which inventory items to use
+    let inventoryItemsToUse = product.inventoryItems;
+    
+    // Check if product has conditional utilization and dimensions are provided
+    if (product.hasConditionalUtilization && product.conditionalUtilizations && (width > 0 || height > 0)) {
+      for (const condition of product.conditionalUtilizations) {
+        if (
+          checkDimensionCondition(
+            condition.conditionType,
+            condition.operator,
+            condition.widthThreshold,
+            condition.heightThreshold,
+            width,
+            height
+          )
+        ) {
+          inventoryItemsToUse = condition.inventoryItems;
+          break; // Use first matching condition
+        }
+      }
+    }
+    
     // Check stock availability for all required items
     const insufficientItems: Array<{ name: string; required: number; available: number }> = [];
     const inventoryDeductions: Array<{
@@ -45,7 +110,7 @@ export async function POST(request: NextRequest) {
       stockAfter: number;
     }> = [];
     
-    for (const item of product.inventoryItems) {
+    for (const item of inventoryItemsToUse) {
       const inventoryItem = item.inventoryItemId as any;
       const requiredQuantity = item.quantityRequired * validatedData.quantityProduced;
       
