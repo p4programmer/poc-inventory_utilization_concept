@@ -75,8 +75,7 @@ export async function GET(request: NextRequest) {
     
     // Get the product with its inventory requirements
     const product = await Product.findById(productId)
-      .populate('inventoryItems.inventoryItemId')
-      .populate('conditionalUtilizations.inventoryItems.inventoryItemId');
+      .populate('inventoryItems.inventoryItemId');
     
     if (!product) {
       return NextResponse.json(
@@ -106,7 +105,18 @@ export async function GET(request: NextRequest) {
             height
           )
         ) {
-          inventoryItemsToUse = condition.inventoryItems;
+          // Manually populate the nested inventory items
+          const populatedConditionItems = await Promise.all(
+            condition.inventoryItems.map(async (item: any) => {
+              const inventoryItem = await mongoose.model('InventoryItem').findById(item.inventoryItemId);
+              return {
+                inventoryItemId: inventoryItem,
+                quantityRequired: item.quantityRequired,
+              };
+            })
+          );
+          
+          inventoryItemsToUse = populatedConditionItems;
           conditionMatched = true;
           matchedConditionInfo = {
             conditionType: condition.conditionType,

@@ -65,7 +65,6 @@ export async function POST(request: NextRequest) {
     // Get the product with its inventory requirements
     const product = await Product.findById(validatedData.productId)
       .populate('inventoryItems.inventoryItemId')
-      .populate('conditionalUtilizations.inventoryItems.inventoryItemId')
       .session(session);
     
     if (!product) {
@@ -95,7 +94,18 @@ export async function POST(request: NextRequest) {
             height
           )
         ) {
-          inventoryItemsToUse = condition.inventoryItems;
+          // Manually populate the nested inventory items
+          const populatedConditionItems: any = await Promise.all(
+            condition.inventoryItems.map(async (item: any) => {
+              const inventoryItem = await InventoryItem.findById(item.inventoryItemId).session(session);
+              return {
+                inventoryItemId: inventoryItem,
+                quantityRequired: item.quantityRequired,
+              };
+            })
+          );
+          
+          inventoryItemsToUse = populatedConditionItems as any;
           break; // Use first matching condition
         }
       }
